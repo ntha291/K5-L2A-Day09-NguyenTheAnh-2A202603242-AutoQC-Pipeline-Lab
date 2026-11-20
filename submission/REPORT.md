@@ -4,7 +4,7 @@
 Pipeline tự động kết luận: **Hold** (mã thoát 10).
 - **Số lượng ảnh đầu vào**: 224 ảnh thô (`data/raw`). Tại Bước 1 (Intake), bộ lọc loại bỏ 21 ảnh lỗi (2 ảnh hỏng không mở được, 3 ảnh kích thước nhỏ dưới 250px, 8 ảnh trùng tuyệt đối MD5, 3 ảnh trùng gần đúng pHash, 5 ảnh rò rỉ từ tập test/val). Nhận 203 ảnh sạch vào luồng kiểm tra.
 - **Số lượng ảnh xuất ra**: 203 ảnh được xuất ra thư mục `submission/export/clean_v1/` kèm `manifest.json`. Bản này được gắn cờ là bản nháp thử nghiệm (chưa phát hành chính thức).
-- **Lý do chính**: Không còn lỗi bắt buộc nào (`n_errors = 0` sau khi máy tự động sửa 35 lỗi và người duyệt giải quyết 6 ảnh thiếu nhãn). Tuy nhiên, sau khi hoàn thành ngân sách duyệt 80 ảnh, vẫn còn **44/203 ảnh mang cảnh báo ngữ nghĩa chưa được duyệt** (tỉ lệ cảnh báo là 21.67%), vượt ngưỡng cho phép `warn_ratio_hold = 10.00%`. Vì vậy, cổng an toàn kích hoạt trạng thái **Hold** để yêu cầu bổ sung ngân sách duyệt trước khi release.
+- **Lý do chính**: Không còn lỗi bắt buộc nào (`n_errors = 0` sau khi máy tự động sửa 35 lỗi và người duyệt giải quyết 6 ảnh thiếu nhãn). Tuy nhiên, sau khi hoàn thành ngân sách duyệt 80 ảnh, vẫn còn **44/203 ảnh mang cảnh báo ngữ nghĩa chưa được duyệt** (tỉ lệ cảnh báo là 21.67%), vượt ngưỡng cho phép `warn_ratio_hold = 10.00%`. Vì vậy, cổng an toàn kích hoạt trạng thái **Hold**; không được phát hành bản này.
 
 ---
 
@@ -35,7 +35,7 @@ Tổng hợp các lỗi phát hiện từ `02_error_list_v1` (tổng số lỗi 
 | `POSSIBLE_WRONG_CLASS` | 18 dòng | Người (hàng đợi) | Box khớp vị trí nhưng khác lớp (vd: truck vs car, car vs person); người duyệt xác định nhãn ngữ nghĩa chuẩn xác. |
 
 ### Phân tích hàng đợi duyệt (`05_review_queue.csv`)
-- **Vì sao xếp các ảnh đầu hàng như vậy**: Thuật toán `build_queue` chấm điểm ưu tiên dựa trên trọng số lỗi dự án (`review.weights`). Điểm số cao nhất thuộc về `NEEDS_LABEL` (trọng số 10) vì ảnh thiếu nhãn là lỗi bắt buộc chặn đứng pipeline (Rework). Do đó, toàn bộ 6 ảnh thiếu nhãn (`img_0013`, `img_0097`, `img_0129`, `img_0154`, `img_0180`, `img_0192`) đều đứng đầu hàng đợi. Tiếp theo là các ảnh có nhiều cảnh báo ngữ nghĩa nặng như `POSSIBLE_WRONG_CLASS` (hệ số 3), `POSSIBLE_MISSING` (hệ số 2), `POSSIBLE_FALSE_POS` (hệ số 2) kết hợp nhân thêm hệ số tin cậy `(1 + conf)` của model dự đoán.
+- **Vì sao xếp các ảnh đầu hàng như vậy**: Thuật toán `build_queue` chấm điểm ưu tiên dựa trên trọng số lỗi dự án (`review.weights`). Điểm số cao nhất thuộc về `NEEDS_LABEL` (trọng số 10) vì ảnh thiếu nhãn là lỗi bắt buộc chặn đứng pipeline (Rework). Do đó, toàn bộ 6 ảnh thiếu nhãn (`img_0031`, `img_0053`, `img_0126`, `img_0135`, `img_0170`, `img_0219`) đều đứng đầu hàng đợi. Tiếp theo là các ảnh có nhiều cảnh báo ngữ nghĩa nặng như `POSSIBLE_WRONG_CLASS` (hệ số 3), `POSSIBLE_MISSING` (hệ số 2), `POSSIBLE_FALSE_POS` (hệ số 2) kết hợp nhân thêm hệ số tin cậy `(1 + conf)` của model dự đoán.
 - **Khả năng xử lý với ngân sách 80 ảnh**: Hàng đợi có tổng cộng 130 ảnh cần duyệt. Với ngân sách 80 ảnh, người duyệt (mô phỏng theo `06_review_log.csv`) đã:
   + Gán nhãn cho toàn bộ 6 ảnh thiếu nhãn, loại trừ hoàn toàn nguy cơ Rework.
   + Giải quyết 14/18 lỗi `POSSIBLE_WRONG_CLASS` (giảm xuống còn 4 lỗi).
@@ -52,15 +52,13 @@ Bảng kết quả hiệu chuẩn trên bộ dữ liệu `data/calib/` (39 ảnh
 | Tham số | Khởi đầu | Đã chọn | Precision / Recall (trước → sau) | Lý do (đánh đổi) |
 |---|---|---|---|---|
 | `duplicates.phash_dist` | 2 | 8 | Exact: 1.00/1.00 → 1.00/1.00<br>Near: 1.00/0.50 (F1=0.67) → 1.00/0.67 (F1=0.80) | `phash_dist = 2` quá chặt, bỏ sót 50% số ảnh gần trùng (Recall chỉ đạt 0.50). Tăng lên `8` giúp Recall tăng lên 0.67 mà Precision vẫn giữ nguyên 1.00 tuyệt đối. Không nâng lên 16 vì trên tập raw sẽ dẫn đến xóa nhầm ảnh khác nhau. |
-| `second_opinion.conf` | 0.25 | 0.50 | Wrong class: 0.56/0.83 → 0.56/0.83<br>Missing: 0.50/1.00 (F1=0.67) → 0.57/1.00 (F1=0.73)<br>Loose box: 0.29/0.40 → 0.20/0.20<br>False pos: 0.31/1.00 → 0.31/1.00 | Ở `conf = 0.25`, model checker tạo ra quá nhiều dự đoán độ tin cậy thấp (nhiều báo động giả, Precision của Missing chỉ đạt 0.50), làm phình hàng đợi duyệt lên 145 ảnh. Tăng `conf = 0.50` lọc sạch nhiễu, tăng Precision của Missing lên 0.57 mà vẫn giữ Recall 1.00, giúp tập trung thời gian của chuyên viên duyệt vào các lỗi thực sự đáng ngờ. |
+| `second_opinion.conf` | 0.25 | 0.50 | Wrong class: 0.56/0.83 → 0.56/0.83<br>Missing: 0.50/1.00 (F1=0.67) → 0.57/1.00 (F1=0.73)<br>Loose box: 0.29/0.40 → 0.20/0.20<br>False pos: 0.31/1.00 → 0.31/1.00 | Chọn `conf = 0.50` như một đánh đổi: trên calib, precision của Missing tăng từ 0.50 lên 0.57 và recall giữ ở 1.00; nhưng chỉ số Loose box giảm. Đây không phải ngưỡng tối ưu cho mọi loại cảnh báo, và các cảnh báo từ model vẫn cần người xác minh. |
 
 ### Điểm đánh lừa của calibration và bằng chứng thực tế
 Tập calibration chỉ có 39 ảnh (kích thước nhỏ). Khi nhìn vào bảng sweep `duplicates.phash_dist`:
-- Tại `phash_dist = 16`, trên tập calib chỉ số F1 đạt đỉnh 0.91 (Precision 1.00, Recall 0.83, bắt được 5/6 ảnh gần trùng).
-- **Tuy nhiên đây là cái bẫy overfitting vào calib**: Khi chạy thử nghiệm trên tập dữ liệu thật `data/raw` (224 ảnh):
-  + Ở `phash_dist = 8`: phát hiện 16 ảnh trùng (gồm 8 trùng byte exact, 3 gần trùng near, 5 rò rỉ leak test), tất cả đều là các cặp ảnh trùng lặp thực tế.
-  + Ở `phash_dist = 16`: số ảnh bị coi là trùng tăng vọt lên **26 ảnh** (tăng thêm 10 ảnh)! Khi mở kiểm tra thực tế, các bức ảnh chụp con đường thẳng dài hoặc ngã tư có bố cục tương đồng (dù là các địa điểm và phương tiện hoàn toàn khác nhau) bị khoảng cách pHash ≤ 16 gom chung một nhóm và bị `autofix` xoá sạch.
-- **Bài học**: Với các thao tác xoá vĩnh viễn (`remove_image`), một lỗi False Positive (xoá nhầm ảnh tốt) nguy hiểm hơn nhiều so với False Negative (bỏ sót ảnh trùng nhẹ). Việc tin tưởng mù quáng vào điểm F1 cao nhất của tập calib 39 ảnh sẽ phá hỏng dữ liệu thật.
+- Tại `phash_dist = 16`, trên tập calib chỉ số F1 của `DUP_IMAGE_NEAR` đạt đỉnh 0.91 (Precision 1.00, Recall 0.83, bắt được 5/6 trường hợp chèn).
+- **Đây là cảnh báo về khả năng tổng quát hóa ngưỡng**: thử nghiệm intake trên `data/raw` cho thấy tại `phash_dist = 8` có 8 ảnh `DUP_IMAGE_EXACT`, 3 `DUP_IMAGE_NEAR`, 5 `LEAK_TEST`; tại `phash_dist = 16` các số tương ứng là 8, 7 và 11. Tổng các cờ trùng/rò rỉ tăng từ 16 lên 26. Chỉ số trên calib không chứng minh 10 cờ tăng thêm đều là false positive; chúng cần được đối chiếu thủ công trước khi chấp nhận ngưỡng cao hơn.
+- **Bài học**: Vì `autofix` loại ảnh có cờ trùng/rò rỉ, tăng ngưỡng dựa riêng vào F1 của calib có thể làm thay đổi đáng kể số ảnh bị loại trên raw. Với thao tác loại ảnh, cần kiểm tra các cặp bị gắn cờ để cân bằng bỏ sót trùng lặp với nguy cơ loại nhầm ảnh tốt.
 
 ---
 
@@ -96,10 +94,10 @@ python scripts/check_submission.py --no-train
 
 ## 6. Quyết định và ghi chú AI
 ### (a) Quyết định cuối cùng
-- **Quyết định hiện tại**: **Hold**. Bộ dữ liệu chưa đủ điều kiện phát hành thương mại vì còn 44/203 ảnh chứa cảnh báo ngữ nghĩa chưa được hậu kiểm (tỉ lệ 21.67% > ngưỡng 10%).
+- **Quyết định hiện tại**: **Hold**. Bộ dữ liệu chưa đủ điều kiện phát hành vì còn 44/203 ảnh chứa cảnh báo chưa được hậu kiểm (tỉ lệ 21.67% > ngưỡng 10%).
 - **Điều kiện để chuyển thành Release**:
-  1. Cần tăng ngân sách duyệt của con người (`budget_images`) từ 80 lên ít nhất 110–130 ảnh để kiểm duyệt hết số ảnh còn lại trong hàng đợi `05_review_queue.csv`.
-  2. Sau khi con người xác nhận các cảnh báo ngữ nghĩa (`POSSIBLE_MISSING`, `POSSIBLE_WRONG_CLASS`, `POSSIBLE_LOOSE_BOX`), số ảnh cảnh báo chưa duyệt sẽ giảm xuống dưới 20 ảnh (< 10% của 203 ảnh). Khi chạy lại `make run`, cổng an toàn sẽ tự động phê duyệt quyết định **Release** và xuất bản bộ dữ liệu hoàn chỉnh.
+  1. Giữ nguyên `review.budget_images = 80` và `gate.warn_ratio_hold = 0.10` theo quy định; không nới ngân sách hay ngưỡng để ép Release.
+  2. Chỉ chuyển sang **Release** nếu một lần duyệt hợp lệ tiếp theo xác minh được cảnh báo và kết quả cuối còn dưới 20 ảnh cảnh báo chưa xử lý (dưới 10% của 203 ảnh). Với kết quả hiện tại, điều kiện này chưa đạt nên phải giữ **Hold**.
 
 ### (b) Ghi chú sử dụng AI
 - **Prompt chính**: Yêu cầu AI hiện thực hoá chính xác 4 module theo phong cách Test-Driven Development (TDD): nhận vào Dataset/config/preds, trả về danh sách Issue, dict decision, hoặc list fix theo đúng chuẩn YOLO, xử lý triệt để các trường hợp biên (dòng trống, toạ độ tràn, xoá ảnh trùng, không bịa nhãn).
@@ -110,5 +108,5 @@ python scripts/check_submission.py --no-train
 
 ### *(Thưởng +2, tùy chọn)* Khảo sát bộ lọc kích thước hộp trên CVAT
 Theo tài liệu `docs/CVAT_FILTER.md` và tệp cấu hình nhãn `cvat/labels.json`:
-- **Áp dụng bộ lọc**: Trong CVAT, sử dụng câu lệnh lọc `width < 20` hoặc `height < 20` cho phép kiểm duyệt viên lọc nhanh toàn bộ các bounding box có kích thước nhỏ dưới 20 pixel (tương ứng với quy tắc kiểm tra cảnh báo `BOX_TINY` trong pipeline tự động của chúng ta khi `min_box_px = 12`). Các box siêu nhỏ này thường là người đi bộ hoặc xe cộ ở hậu cảnh xa xôi trong ảnh COCO.
+- **Áp dụng bộ lọc**: Trong CVAT, sử dụng câu lệnh lọc `width < 20` hoặc `height < 20` để tạo một vòng lọc sơ bộ rộng hơn. Pipeline chỉ gắn cảnh báo `BOX_TINY` khi cạnh ngắn dưới 12px; vì vậy các box 12–20px cần được xem xét theo guideline thay vì mặc định coi là lỗi. Các box nhỏ có thể là người đi bộ hoặc xe cộ ở hậu cảnh xa xôi trong ảnh COCO.
 - **Ý nghĩa `can_review`**: Thuộc tính và cơ chế phân quyền `can_review` trong CVAT đảm bảo sự tách biệt trách nhiệm: người gán nhãn sơ bộ (annotator) không thể tự ý xoá hay bỏ qua các box nhỏ bị nghi ngờ, mà quyền phê duyệt/loại bỏ box thuộc về chuyên viên kiểm định chất lượng (reviewer/QA) sau khi đã đối chiếu với tài liệu quy chuẩn kích thước tối thiểu của dự án.
