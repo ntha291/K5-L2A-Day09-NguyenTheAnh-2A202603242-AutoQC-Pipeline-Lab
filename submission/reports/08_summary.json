@@ -1,0 +1,18 @@
+{
+  "verdict": {
+    "decision": "Hold",
+    "n_errors": 0,
+    "n_warn_images": 44,
+    "n_images": 203,
+    "warn_ratio": 0.2167,
+    "reasons": [
+      "Tỉ lệ ảnh có cảnh báo chưa duyệt là 21.67% (44/203 ảnh), đạt hoặc vượt ngưỡng cho phép 10.00%. Tạm dừng chờ duyệt (Hold)."
+    ]
+  },
+  "reviewed": 80,
+  "budget": 80,
+  "seconds": 31.7,
+  "exported": "C:\\Users\\DELL\\Documents\\AI20k\\K5-L23-Day09-AutoQC-Pipeline-Lab\\submission\\export\\clean_v1",
+  "config_sha1": "35ffc8ad73adf12f0a6b27bb30833826e78d3923",
+  "review_sim_sha1": "7988ca22827f780a7043a2300490e679a1697154"
+}
